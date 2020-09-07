@@ -2,7 +2,6 @@ from flask import Flask, render_template, request
 import ast
 from bs4 import BeautifulSoup
 import requests as rq
-
 from utilities import *
 
 app = Flask(__name__)
@@ -18,12 +17,9 @@ def toeholds():
     sequence=request.form.get('sequence')
     list = []
     if sequence != None:
-        #secondary_sensor_B = '.........................(((((((((((...(((((............)))))...)))))))))))......................'
-
-        secondary_sensor_A = '..............................(((((((((...((((((...........))))))...)))))))))..............................'
-        window = 26  #I have changed this 
+        window = 15  
         result_path = ''
-        list = sorted(nupack_analysis(sequence, secondary_sensor_A, window, 'A', result_path), key=lambda x: x[5])
+        list = sorted(nupack_analysis(sequence, window, result_path), key=lambda x: x[5])
 
     return render_template('toeholds.html', list=list)
 

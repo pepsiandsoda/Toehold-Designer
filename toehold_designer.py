@@ -21,7 +21,7 @@ def toeholds():
         #secondary_sensor_B = '.........................(((((((((((...(((((............)))))...)))))))))))......................'
 
         secondary_sensor_A = '..............................(((((((((...((((((...........))))))...)))))))))..............................'
-        window = 36
+        window = 26  #I have changed this 
         result_path = ''
         list = sorted(nupack_analysis(sequence, secondary_sensor_A, window, 'A', result_path), key=lambda x: x[5])
 

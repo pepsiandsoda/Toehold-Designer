@@ -1,36 +1,61 @@
 import os
 import os.path
 from subprocess import Popen, PIPE
-
 import time
 
 
 def split_sequence(sequence, window):
+    '''
+    Sliding window that splits the sequence into smaller sequences
+    
+    Args: 
+        sequence(str): target RNA strand
+        window(int): length of sliding window
+        
+    Returns(lst of strs): list of smaller sequence windows derived 
+    from the original sequence
+    '''
+    
     sequences = []
-    limit = len(sequence) - window + 1
-
-    for i in range(0, limit):
+    last_window_start_pos = len(sequence) - window + 1   #+1 as final index value = value - 1 
+    
+    for i in range(0, last_window_start_pos):
         sequences.append(sequence[i:window + i])
 
     return sequences
 
 
 def reversed_complement(sequence):
-    mapping = {'A': 'U', 'G': 'C', 'U': 'A', 'C': 'G'}
-    sequence_upper = sequence.upper()
+    '''
+    Creates the reverse complement sequence of an RNA molecule
+    
+    Sequence(str): input RNA strand
+    
+    Returns (str): reverse complementary strand of input RNA
+    '''
+    
+    nt_pairing = {'A': 'U', 'G': 'C', 'U': 'A', 'C': 'G'}
+    sequence_upper = sequence.upper()  #sequence has same format as strings in nt_pairing
 
     complement = ''
-    for c in sequence_upper:
-        complement += mapping[c]
+    for nt in sequence_upper:
+        complement += nt_pairing[nt]  #add complementary nt from nt_pairing to complement sequence 
 
-    # reverse the sequence
-    return complement[::-1]
+    return complement[::-1]  # reverse the sequence
 
 
 def no_stop(sequence):
+     '''
+    Check for stop codons
+    
+    sequence(str): input RNA strand
+    
+    returns(Bool): whether the input strand contains a stop codon
+    '''
+        
     stop = ['UAA', 'UAG', 'UGA']
 
-    for i in range(0, len(sequence), 3):
+    for i in range(0, len(sequence), 3):  #only checks one reading frame - fix
         if sequence[i:i + 3] in stop:
             return False
 
@@ -38,46 +63,20 @@ def no_stop(sequence):
 
 
 def possible_toehold_B(reg, rev):
-    loop = 'GGACUUUAGAACAGAGGAGAUAAAGAUG'
+    stem_5 = 'UGCAUCCUCCUCCUCCU'
+    stem_3 = 'AGGAGGAGAAAAAUGCA'
     linker = 'AACCUGGCGGCAGCGCAAAAG'
+    
     toeholds = []
 
-    for n in ['A', 'G', 'U', 'C']:
-        if no_stop(reg[0:11] + n + linker):
-            toeholds.append(rev + loop + reg[0:11] + n + linker)
+#for n in ['A', 'G', 'U', 'C']:  adding the nt if there is not a stop codon, otherwise, if there is a stop codon then it adds in a different nt there. This is probably to make the number of nt between the AUG and reporter a multiple of three - makes sure things are inline 
+    
+    if no_stop(stem_3[-2:] + linker):
+        toehold.append(stem_5 + loop + stem_3 + linker)
+        
+        #toeholds.append(rev + loop + reg[0:11] + n + linker)  #if want to add in extra nt then include this line
 
     return toeholds
-
-
-def possible_toehold_A(reg_sequences, rev_comp_sequences):
-    loop = 'GUUAUAGUUAUGAACAGAGGAGACAUAACAUGAAC'
-    linker = 'GUUAACCUGGCGGCAGCGCAAAAG'
-    toeholds = {}
-
-    for rev, reg in zip(rev_comp_sequences, reg_sequences):
-        if no_stop(reg[0:6] + 'AAC' + reversed_complement(reg[0:3]) + linker):
-            toeholds[reg] = rev + loop + reg[0:6] + 'AAC' + reversed_complement(reg[0:3]) + linker
-
-    return toeholds
-
-
-def complex_defect(sequence, secondary, result_path):
-    file = open('{}toeh.in'.format(result_path), 'w')
-    file.write("{}\n".format(sequence))
-    file.write("{}".format(secondary))
-    file.close()
-
-    defect_toeh = 0
-    count = 0
-    with Popen(["complexdefect", "{}toeh".format(result_path)], stdout=PIPE) as proc:
-        res = (proc.stdout.read()).decode("utf-8").split('\n')
-        for l in res:
-            count += 1
-            if count == 16:
-                defect_toeh = float(l)
-
-    os.remove("{}toeh.in".format(result_path))
-    return defect_toeh
 
 
 def single_streadness(sequence, result_path, wait=1):
@@ -109,29 +108,23 @@ def parse_pairs_result(res, length):
 
     return final
 
-def nupack_analysis(sequence, secondary_sensor,  window, sensor_type, result_path):
+def nupack_analysis(sequence, window, result_path):
     list_for_table = []
 
     processed_sequence = sequence.upper().replace('T', 'U').replace(' ', '')
-    reg_sequences = split_sequence(processed_sequence, window)
-    rev_comp_sequences = [reversed_complement(s) for s in reg_sequences]
-
-    if sensor_type == 'A':
-        target_toehold_map = possible_toehold_A(reg_sequences, rev_comp_sequences)
-    else:
-        target_toehold_map = possible_toehold_B(reg_sequences, rev_comp_sequences)
-
-    sequence = sequence.upper().replace('T', 'U')
+    loop_sequences = split_sequence(processed_sequence, window)
+    
+    target_toehold_map = possible_toehold_B(loop_sequences)
+    
+    sequence = sequence.upper().replace('T', 'U')  #this seems like repetition
     single_streadness_sequence = single_streadness(sequence, result_path, wait=6)
-    for target, toehold in target_toehold_map.items():
+    for target in target_toehold_map.items():
         id = sequence.index(target)
 
-        target_defect = sum(single_streadness_sequence[id:id+36])/36
-        toehold_defect = sum(single_streadness(toehold, result_path)[0:30])/30
-        sensor_defect = complex_defect(toehold, secondary_sensor, result_path)
+        target_defect = sum(single_streadness_sequence[id:id+15])/15
 
-        score = 5*(1-target_defect) + 4*(1-toehold_defect) + 3*sensor_defect
+        score = 5*(1-target_defect)
 
-        list_for_table.append(tuple([target[0:36], toehold, 1-target_defect, 1-toehold_defect, sensor_defect, score]))
+        list_for_table.append(tuple([target[0:15], 1-target_defect]))
 
     return list_for_table

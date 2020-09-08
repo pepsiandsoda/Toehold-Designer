@@ -6,6 +6,7 @@ import os
 import os.path
 from subprocess import Popen, PIPE
 import time
+import pandas as pd
 
 app = Flask(__name__)
 
@@ -67,7 +68,7 @@ def no_stop(sequence):
     return True
 
 
-def possible_toehold_B(reg, rev):
+def possible_toehold_B(loop):
     stem_5 = 'UGCAUCCUCCUCCUCCU'
     stem_3 = 'AGGAGGAGAAAAAUGCA'
     linker = 'AACCUGGCGGCAGCGCAAAAG'
@@ -84,53 +85,15 @@ def possible_toehold_B(reg, rev):
     return toeholds
 
 
-def single_streadness(sequence, result_path, wait=1):
-    file = open('{}pipo.in'.format(result_path), 'w')
-    file.write("{}\n".format(sequence))
-    file.close()
-
-    Popen(["pairs", "{}pipo".format(result_path)], stdout=PIPE)
-    time.sleep(wait)
-    with open("{}pipo.ppairs".format(result_path)) as res:
-        parsed_res = parse_pairs_result(res, len(sequence))
-
-    os.remove("{}pipo.ppairs".format(result_path,))
-    os.remove("{}pipo.in".format(result_path))
-
-
-    return parsed_res
-
-
-def parse_pairs_result(res, length):
-    final = []
-    for r in res:
-        r = r.strip('\n')
-        if not r.startswith('%'):
-            r = r.split('\t')
-            if len(r) == 3:
-                if r[1] == str(length+1):
-                    final.append(float(r[2]))
-
-    return final
-
 def nupack_analysis(sequence, window, result_path):
     list_for_table = []
 
     processed_sequence = sequence.upper().replace('T', 'U').replace(' ', '')
-    loop_sequences = split_sequence(processed_sequence, window)
+    d_1 = {'Triggers': split_sequence(processed_sequence, window)}  
+    result = pd.DataFrame(data=d_1)
     
-    target_toehold_map = possible_toehold_B(loop_sequences)
-    
-    sequence = sequence.upper().replace('T', 'U')  #this seems like repetition
-    single_streadness_sequence = single_streadness(sequence, result_path, wait=6)
-    for target in target_toehold_map.items():
-        id = sequence.index(target)
-
-        target_defect = sum(single_streadness_sequence[id:id+15])/15
-
-        score = 5*(1-target_defect)
-
-        list_for_table.append(tuple([target[0:15], 1-target_defect]))
+    for i in range(len(result.iloc[:,0])): 
+        list_for_table.append((possible_toehold_B(reversed_complement(result.iloc[i,0])))[0])
 
     return list_for_table
 
@@ -145,7 +108,7 @@ def toeholds():
     sequence=request.form.get('sequence')
     list = []
     if sequence != None:
-        window = 15  
+        window = 18  
         result_path = ''
         list = sorted(nupack_analysis(sequence, window, result_path), key=lambda x: x[5])
 
@@ -174,9 +137,7 @@ def details():
     defect = element[4]
     score = element[5]
 
-    toeholdsB = possible_toehold_B(target, reversed_complement(target))
-
-    return render_template('details.html', details=(target, toehold, target_ss,toehold_ss, defect, score, list, index, toeholdsB))
+    return render_template('details.html', details=(target, toehold, target_ss,toehold_ss, defect, score, list, index))
 
 
 @app.route('/structure', methods=['POST'])

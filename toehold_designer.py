@@ -69,21 +69,7 @@ def no_stop(sequence):
 
 
 def possible_toehold_B(loop):
-    stem_5 = 'UGCAUCCUCCUCCUCCU'
-    stem_3 = 'AGGAGGAGAAAAAUGCA'
-    linker = 'AACCUGGCGGCAGCGCAAAAG'
-    
-    toeholds = []
-
-#for n in ['A', 'G', 'U', 'C']:  adding the nt if there is not a stop codon, otherwise, if there is a stop codon then it adds in a different nt there. This is probably to make the number of nt between the AUG and reporter a multiple of three - makes sure things are inline 
-    
-    if no_stop(stem_3[-2:] + linker):
-        toehold.append(stem_5 + loop + stem_3 + linker)
-        
-        #toeholds.append(rev + loop + reg[0:11] + n + linker)  #if want to add in extra nt then include this line
-
-    return toeholds
-
+    #fill in
 
 def nupack_analysis(sequence, window, result_path):
     list_for_table = []
